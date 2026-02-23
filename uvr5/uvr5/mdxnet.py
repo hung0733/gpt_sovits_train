@@ -1,5 +1,6 @@
 import os
 import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +79,13 @@ class Predictor:
         logger.info(ort.get_available_providers())
         self.args = args
         self.model_ = get_models(device=cpu, dim_f=args.dim_f, dim_t=args.dim_t, n_fft=args.n_fft)
+        
+        model_path = os.path.join(args.onnx, self.model_.target_name + ".onnx")
+        path : Path = Path(args.onnx)
+        if path.is_file():
+            model_path = path
         self.model = ort.InferenceSession(
-            os.path.join(args.onnx, self.model_.target_name + ".onnx"),
+            model_path,
             providers=[
                 "CUDAExecutionProvider",
                 "DmlExecutionProvider",
@@ -206,8 +212,11 @@ class Predictor:
 
 
 class MDXNetDereverb:
-    def __init__(self, chunks):
-        self.onnx = "%s/uvr5_weights/onnx_dereverb_By_FoxJoy" % os.path.dirname(os.path.abspath(__file__))
+    def __init__(self, chunks, model_path = None):
+        if model_path is None:
+            model_path = "%s/uvr5_weights/onnx_dereverb_By_FoxJoy" % os.path.dirname(os.path.abspath(__file__))
+        
+        self.onnx = model_path
         self.shifts = 10  # 'Predict with randomised equivariant stabilisation'
         self.mixing = "min_mag"  # ['default','min_mag','max_mag']
         self.chunks = chunks

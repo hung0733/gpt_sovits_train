@@ -83,6 +83,7 @@ def main():
         logging.info("=" * 60)
         logging.info(f"🚀 啟動任務: [{task.cmd} - {task.sub_cmd}]")
         logging.info(f"   角色: {task.character_name}")
+        logging.info(f"   音頻名稱: {task.audio_name}")
         logging.info(f"   檔案: {task.file_path.name}")
         logging.info(f"   執行中的任務: {task.in_process}")
         logging.info("-" * 60)

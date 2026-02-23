@@ -82,7 +82,7 @@ class UVR5Processor:
             func = UVR5Processor._model_cache[cache_key]
         else:
             if "onnx_dereverb" in model_name.lower():
-                func = MDXNetDereverb(15)
+                func = MDXNetDereverb(15, str(Config.dirs["UVR5_MODEL"] / (model_name + ".onnx")))
             elif "roformer" in model_name.lower():
                 func = Roformer_Loader(
                     str(Config.dirs["UVR5_MODEL"] / (model_name + ".ckpt")),

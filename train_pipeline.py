@@ -37,8 +37,6 @@ class TrainPipeline:
         try:
             if task.cmd == "UVR5":
                 UVR5.process_uvr5_task(task)
-                
-
 
             if Config.train_task_file.exists():
                 Config.train_task_file.unlink()
@@ -55,8 +53,16 @@ class TrainPipeline:
         # 檢查時間狀態 (Config 內定義)
         is_night_time: bool = Config.is_night_task_time()
 
-        # 目前優化處理 UVR5
-        return UVR5.get_uvr5_extract_vocal_task()
+        task : Task = None
+        
+        if task is None:
+            task = UVR5.get_uvr5_deecho_vocal_task()
+        if task is None:
+            task = UVR5.get_uvr5_dereverb_vocal_task()
+        if task is None:
+            task = UVR5.get_uvr5_extract_vocal_task()
+    
+        return task
 
 
 

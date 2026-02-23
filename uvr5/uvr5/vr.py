@@ -189,7 +189,7 @@ class AudioPre:
 
 class AudioPreDeEcho:
     def __init__(self, agg, model_path, device, is_half, tta=False):
-        self.model_path = model_path
+        self.model_path = str(model_path)
         self.device = device
         self.data = {
             # Processing Options
@@ -201,7 +201,7 @@ class AudioPreDeEcho:
             "high_end_process": "mirroring",
         }
         mp = ModelParameters("%s/lib/lib_v5/modelparams/4band_v3.json" % parent_directory)
-        nout = 64 if "DeReverb" in model_path else 48
+        nout = 64 if "DeReverb" in self.model_path else 48
         model = CascadedNet(mp.param["bins"] * 2, nout)
         cpk = torch.load(model_path, map_location="cpu")
         model.load_state_dict(cpk)

@@ -9,6 +9,7 @@ class Task(BaseModel):
     sub_cmd: str
     file_path: Path
     character_name: str
+    audio_name: str
     
     # 這些是計算出來的欄位，設為 Optional
     in_process: bool = False
@@ -24,12 +25,10 @@ class Task(BaseModel):
 
     # Pydantic 專用：初始化後執行路徑計算
     def model_post_init(self, __context):
-        file_name = self.file_path.name
-        file_name_without_ext = self.file_path.stem
 
         # --- Host 路徑邏輯 ---
         self.char_dir = Config.dirs["TRAIN_INPUT"] / self.character_name
-        self.train_dir = self.char_dir / file_name_without_ext
+        self.train_dir = self.char_dir / self.audio_name
         self.vocal_dir = self.train_dir / "vocal"
         self.inst_dir = self.train_dir / "inst"
 

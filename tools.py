@@ -1,4 +1,3 @@
-
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path
@@ -44,7 +43,11 @@ class Tools:
             # 唔用 capture_output，改用 stdout=subprocess.PIPE
             # 咁樣可以即時將 Docker 嘅 output 導向到你個 log 檔
             with subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
             ) as p:
                 for line in p.stdout:
                     # 去除換行符號並寫入 logging
@@ -86,8 +89,8 @@ class Tools:
             return image_name in result.stdout
         except Exception as e:
             logging.error(f"檢查 Image 狀態時出錯: {e}")
-            return False    
-        
+            return False
+
     @staticmethod
     def get_best_device():
         """
@@ -103,14 +106,14 @@ class Tools:
             try:
                 # 攞到 (剩餘顯存, 總顯存) 單位係 bytes
                 free_mem, total_mem = torch.cuda.mem_get_info(i)
-                
+
                 # 攞算力等級 (Compute Capability)
                 prop = torch.cuda.get_device_properties(i)
                 capability = prop.major + prop.minor / 10
-                
+
                 # 算力 >= 7.0 (Volta 架構或之後，如 V100, RTX 20/30/40 系列) 支援 FP16 加速
                 supported_dtype = torch.float16 if capability >= 7.0 else torch.float32
-                
+
                 # 儲存格式: (device_id, dtype, free_mem, capability)
                 tmp.append((f"cuda:{i}", supported_dtype, free_mem, capability))
             except Exception as e:
@@ -121,19 +124,19 @@ class Tools:
 
         # 排序邏輯：優先比剩餘顯存 (x[2])，其次比算力等級 (x[3])
         best_choice = max(tmp, key=lambda x: (x[2], x[3]))
-        
+
         infer_device = best_choice[0]
-        is_half = (best_choice[1] == torch.float16)
-        
+        is_half = best_choice[1] == torch.float16
+
         print(f"--- 硬件檢測報告 ---")
         print(f"最佳設備: {infer_device}")
         print(f"剩餘顯存: {best_choice[2]/(1024**3):.2f} GB")
         print(f"算力等級: {best_choice[3]}")
         print(f"啟用 FP16: {is_half}")
         print(f"------------------")
-        
+
         return infer_device, is_half
-    
+
     @staticmethod
     def is_audio_file(file_path: Path) -> bool:
         """使用 ffprobe 檢查是否為有效的音頻檔案"""
@@ -145,18 +148,18 @@ class Tools:
         except Exception:
             return False
         return False
-    
+
     @staticmethod
     def clear_folder_contents(folder_path: Path):
         for item in folder_path.iterdir():
             try:
                 if item.is_file() or item.is_symlink():
-                    item.unlink() # 刪除檔案或符號連結
+                    item.unlink()  # 刪除檔案或符號連結
                 elif item.is_dir():
-                    shutil.rmtree(item) # 遞迴刪除子目錄
+                    shutil.rmtree(item)  # 遞迴刪除子目錄
             except Exception as e:
                 print(f"刪除 {item} 時發生錯誤: {e}")
-                
+
     @staticmethod
     def archive_old_logs(log_dir):
         """
@@ -167,17 +170,16 @@ class Tools:
         first_day_of_this_month = now.replace(day=1)
         last_day_of_last_month = first_day_of_this_month - timedelta(days=1)
         last_month_str = last_day_of_last_month.strftime("%Y-%m")
-        
+
         archive_name = log_dir / f"logs_{last_month_str}.tar.gz"
-        
+
         # 如果個壓縮包已經喺度，就唔再重複做
         if archive_name.exists():
             return
 
         # 搵返所有符合 "console.log.YYYY-MM-*" 格式嘅上個月舊檔
         files_to_archive = [
-            f for f in log_dir.glob(f"console.log.{last_month_str}-*")
-            if f.is_file()
+            f for f in log_dir.glob(f"console.log.{last_month_str}-*") if f.is_file()
         ]
 
         if files_to_archive:
@@ -186,7 +188,7 @@ class Tools:
                 with tarfile.open(archive_name, "w:gz") as tar:
                     for file in files_to_archive:
                         tar.add(file, arcname=file.name)
-                
+
                 # 確定打包成功後，至刪除舊檔
                 for file in files_to_archive:
                     file.unlink()
