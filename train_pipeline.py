@@ -180,5 +180,9 @@ def _process_uvr5_task(task: Task):
             ],
         )
         
-    if 
+    if task.sub_cmd == "extract":
+        # TODO 在 vocal_dir 找 .reformatted_vocals.wav 字尾的 File
+        # TODO Check 佢如果是Audio File, 就move to train_dir and rename to "vocal.wav"
+        # TODO move file_path to train_dir and rename to "original" + original ext
+    
     return
