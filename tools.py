@@ -1,8 +1,13 @@
 
+from datetime import datetime, timedelta
 import logging
+from pathlib import Path
+import shutil
 import subprocess
+import tarfile
 
 import ffmpeg
+from sympy import re
 import torch
 
 from config import Config
@@ -12,7 +17,7 @@ class Tools:
     @staticmethod
     def run_docker(image_name: str, args: list[str]) -> bool:
         # 攞到目前最空閒粒 GPU (例如 "cuda:0")
-        device_str, is_half = Config.get_best_device()
+        device_str, is_half = Tools.get_best_device()
         # 轉做 docker 需要嘅 ID (例如 "0")
         device_id = device_str.split(":")[-1] if "cuda" in device_str else "all"
 
@@ -47,7 +52,7 @@ class Tools:
 
                 p.wait()
                 if p.returncode == 0:
-                    logging.info("[{image_name}] ✅ Docker 執行完畢並成功退出")
+                    logging.info(f"[{image_name}] ✅ Docker 執行完畢並成功退出")
                     return True
                 else:
                     logging.error(
@@ -140,3 +145,51 @@ class Tools:
         except Exception:
             return False
         return False
+    
+    @staticmethod
+    def clear_folder_contents(folder_path: Path):
+        for item in folder_path.iterdir():
+            try:
+                if item.is_file() or item.is_symlink():
+                    item.unlink() # 刪除檔案或符號連結
+                elif item.is_dir():
+                    shutil.rmtree(item) # 遞迴刪除子目錄
+            except Exception as e:
+                print(f"刪除 {item} 時發生錯誤: {e}")
+                
+    @staticmethod
+    def archive_old_logs(log_dir):
+        """
+        搵返上個月嘅舊 Log (格式: console.log.YYYY-MM-*) 並打包
+        """
+        now = datetime.now()
+        # 攞上個月嘅年份同月份 (例如 2026-01)
+        first_day_of_this_month = now.replace(day=1)
+        last_day_of_last_month = first_day_of_this_month - timedelta(days=1)
+        last_month_str = last_day_of_last_month.strftime("%Y-%m")
+        
+        archive_name = log_dir / f"logs_{last_month_str}.tar.gz"
+        
+        # 如果個壓縮包已經喺度，就唔再重複做
+        if archive_name.exists():
+            return
+
+        # 搵返所有符合 "console.log.YYYY-MM-*" 格式嘅上個月舊檔
+        files_to_archive = [
+            f for f in log_dir.glob(f"console.log.{last_month_str}-*")
+            if f.is_file()
+        ]
+
+        if files_to_archive:
+            print(f"發現上月 Log，正在打包至 {archive_name}...")
+            try:
+                with tarfile.open(archive_name, "w:gz") as tar:
+                    for file in files_to_archive:
+                        tar.add(file, arcname=file.name)
+                
+                # 確定打包成功後，至刪除舊檔
+                for file in files_to_archive:
+                    file.unlink()
+                print(f"歸檔完成，已清理 {len(files_to_archive)} 個舊檔案。")
+            except Exception as e:
+                print(f"歸檔過程出錯: {e}")

@@ -1,24 +1,39 @@
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import sys
 import traceback
 from pathlib import Path
 from structure import Task
 from config import Config
+from tools import Tools
 from train_pipeline import TrainPipeline
 
-# 設定 Log 檔案路徑 (需確認執行者有 /var/log 寫入權限)
-LOG_FILE = Config.dirs["TRAIN_ROOT"] / "tts_train.log"
+# 設定 Log 檔案路徑
 LOCK_FILE = Path("/tmp/tts_train.lock")
 
-LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+LOG_DIR = Config.dirs["TRAIN_ROOT"] / "log"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "console.log"
 
-# 配置 Logging
+Tools.archive_old_logs(LOG_DIR)
+
+# 2. 配置 Logging
+file_handler = TimedRotatingFileHandler(
+    filename=str(LOG_FILE),
+    when="midnight",    # 每日凌晨分割
+    interval=1,         # 每 1 日一次
+    backupCount=0,      # 手動 archive，唔使自動 delete
+    encoding="utf-8"
+)
+
+file_handler.suffix = "%Y-%m-%d"
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
+        file_handler,
         logging.StreamHandler(sys.stdout),
     ],
 )

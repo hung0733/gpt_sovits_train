@@ -40,6 +40,9 @@ class UVR5:
     @staticmethod
     def process_uvr5_task(task: Task):
         if not task.in_process:
+            Tools.clear_folder_contents(task.vocal_dir)
+            Tools.clear_folder_contents(task.inst_dir)
+            
             task.to_file(Config.train_task_file)
             Tools.run_docker(
                 Config.docker_imgs[task.cmd],
@@ -55,20 +58,20 @@ class UVR5:
                 ],
             )
 
-        file_file_name: str = None
+        find_file_name: str = None
         store_file_name: str = None
         if task.sub_cmd == "extract":
-            target_file_name = "*.reformatted_vocals.wav"
+            find_file_name = "*.reformatted_vocals.wav"
             store_file_name = "vocal.wav"
 
-        if not target_file_name is None:
+        if not find_file_name is None:
             logging.info(f"正在整理 {task.character_name} 的提取結果...")
 
             is_find_file: bool = False
 
             # 1. 在 vocal_dir 搵 target_file_name 字尾嘅 File
             # UVR5 (Roformer) 預設會喺 output folder 產生呢種名嘅 file
-            vocal_files = list(task.vocal_dir.glob(target_file_name))
+            vocal_files = list(task.vocal_dir.glob(find_file_name))
             if vocal_files:
                 for vocal_file in vocal_files:
                     # 2. Check 佢係咪有效嘅 Audio File 並搬移
@@ -94,5 +97,5 @@ class UVR5:
                 else:
                     logging.error(f"❌ 搵唔到原始音檔，無法搬移: {task.file_path}")
             else:
-                logging.warning(f"⚠️ 在 {task.vocal_dir} 找不到 {target_file_name}")
+                logging.warning(f"⚠️ 在 {task.vocal_dir} 找不到 {find_file_name}")
         return
