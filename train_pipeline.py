@@ -5,10 +5,11 @@ import traceback
 import subprocess
 from pathlib import Path
 import ffmpeg
+from run_slice import Slice
 from structure import Task
 from config import Config
 from pydantic import BaseModel
-from tools import Tools
+from tools.tools import Tools
 from uvr5 import UVR5
 
 
@@ -37,6 +38,8 @@ class TrainPipeline:
         try:
             if task.cmd == "UVR5":
                 UVR5.process_uvr5_task(task)
+            elif task.cmd == "Slice_Audio":
+                Slice.process_slick_audio_task(task)
 
             if Config.train_task_file.exists():
                 Config.train_task_file.unlink()
@@ -55,6 +58,8 @@ class TrainPipeline:
 
         task : Task = None
         
+        if task is None:
+            task = Slice.get_slick_audio_task()
         if task is None:
             task = UVR5.get_uvr5_deecho_vocal_task()
         if task is None:

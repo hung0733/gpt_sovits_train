@@ -5,13 +5,15 @@ from structure import Task
 from config import Config
 from pydantic import BaseModel
 
-from tools import Tools
+from tools.tools import Tools
 
 
 class UVR5:
 
     @staticmethod
-    def _find_task_in_folders(sub_cmd: str, input_filename: str, output_filename: str =  None) -> Task:
+    def _find_task_in_folders(
+        sub_cmd: str, input_filename: str, output_filename: str = None
+    ) -> Task:
         """
         通用遍歷邏輯
         :param sub_cmd: 子命令 (extract/dereverb/deecho)
@@ -26,36 +28,46 @@ class UVR5:
         for sub_dir in sorted(base_dir.iterdir()):
             if not sub_dir.is_dir():
                 continue
-            
+
             char_name = sub_dir.name
 
             # 處理 extract：直接喺角色目錄搵 file
             if sub_cmd == "extract":
                 for file in sorted(sub_dir.iterdir()):
-                    if file.is_file() and not file.name.startswith(".") and Tools.is_audio_file(file):
+                    if (
+                        file.is_file()
+                        and not file.name.startswith(".")
+                        and Tools.is_audio_file(file)
+                    ):
                         return Task(
                             cmd="UVR5",
                             sub_cmd="extract",
                             file_path=file,
                             character_name=char_name,
-                            audio_name=file.stem
+                            audio_name=file.stem,
                         )
-            
+
             # 處理 deecho / dereverb：喺 audio_dir 入面搵
             else:
                 for audio_dir in sorted(sub_dir.iterdir()):
                     if not audio_dir.is_dir():
                         continue
-                    
+
                     audio_name = audio_dir.name
                     vocal_path = audio_dir / input_filename
-                    result_path = audio_dir / output_filename if output_filename else None
+                    result_path = (
+                        audio_dir / output_filename if output_filename else None
+                    )
 
                     # Check 來源存在 同埋 結果未存在
                     if vocal_path.exists() and Tools.is_audio_file(vocal_path):
-                        if result_path and result_path.exists() and Tools.is_audio_file(result_path):
-                            continue # 做咗喇，跳過
-                        
+                        if (
+                            result_path
+                            and result_path.exists()
+                            and Tools.is_audio_file(result_path)
+                        ):
+                            continue  # 做咗喇，跳過
+
                         return Task(
                             cmd="UVR5",
                             sub_cmd=sub_cmd,
@@ -67,7 +79,9 @@ class UVR5:
 
     @staticmethod
     def get_uvr5_deecho_vocal_task() -> Task:
-        return UVR5._find_task_in_folders("deecho", "main_vocal.wav", "vocal_main_vocal.wav")
+        return UVR5._find_task_in_folders(
+            "deecho", "main_vocal.wav", "vocal_main_vocal.wav"
+        )
 
     @staticmethod
     def get_uvr5_dereverb_vocal_task() -> Task:
@@ -85,6 +99,12 @@ class UVR5:
 
             task.to_file(Config.train_task_file)
             Tools.run_docker(
+                [
+                    "-e",
+                    "PYTHONPATH=/app:/app/uvr5",
+                    "-v",
+                    f"{Config.dirs['DATA_ROOT']}:{Config.docker_root}",
+                ],
                 Config.docker_imgs[task.cmd],
                 [
                     "--task_type",
@@ -101,7 +121,7 @@ class UVR5:
         find_file_name: str = None
         store_file_name: str = None
         if task.sub_cmd == "extract":
-            find_file_name = "*.reformatted_vocals.wav"
+            find_file_name = "*_vocals.wav"
             store_file_name = "vocal.wav"
         elif task.sub_cmd == "dereverb":
             find_file_name = "*.wav_main_vocal.wav"

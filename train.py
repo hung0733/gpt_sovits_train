@@ -5,7 +5,7 @@ import traceback
 from pathlib import Path
 from structure import Task
 from config import Config
-from tools import Tools
+from tools.tools import Tools
 from train_pipeline import TrainPipeline
 
 # 設定 Log 檔案路徑

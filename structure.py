@@ -17,11 +17,13 @@ class Task(BaseModel):
     inst_dir: Optional[Path] = None
     train_dir: Optional[Path] = None
     char_dir: Optional[Path] = None
+    slice_dir: Optional[Path] = None
     
     docker_file_path: Optional[Path] = None
     docker_vocal_dir: Optional[Path] = None
     docker_inst_dir: Optional[Path] = None
     docker_train_dir: Optional[Path] = None
+    docker_slice_ir: Optional[Path] = None
 
     # Pydantic 專用：初始化後執行路徑計算
     def model_post_init(self, __context):
@@ -31,16 +33,19 @@ class Task(BaseModel):
         self.train_dir = self.char_dir / self.audio_name
         self.vocal_dir = self.train_dir / "vocal"
         self.inst_dir = self.train_dir / "inst"
+        self.slice_dir = self.train_dir / "slice"
 
         # 自動建立實體資料夾
         self.vocal_dir.mkdir(parents=True, exist_ok=True)
         self.inst_dir.mkdir(parents=True, exist_ok=True)
+        self.slice_dir.mkdir(parents=True, exist_ok=True)
 
         # --- Docker 路徑映射 ---
         self.docker_file_path = self._replace_docker_root(self.file_path)
         self.docker_train_dir = self._replace_docker_root(self.train_dir)
         self.docker_vocal_dir = self._replace_docker_root(self.vocal_dir)
         self.docker_inst_dir = self._replace_docker_root(self.inst_dir)
+        self.docker_slice_dir = self._replace_docker_root(self.slice_dir)
 
     def _replace_docker_root(self, path: Path) -> Path:
         original_path_str = str(path)

@@ -14,7 +14,7 @@ from config import Config
 
 class Tools:
     @staticmethod
-    def run_docker(image_name: str, args: list[str]) -> bool:
+    def run_docker(confs: list[str], image_name: str, args: list[str]) -> bool:
         # 攞到目前最空閒粒 GPU (例如 "cuda:0")
         device_str, is_half = Tools.get_best_device()
         # 轉做 docker 需要嘅 ID (例如 "0")
@@ -26,13 +26,12 @@ class Tools:
             "run",
             "--rm",
             "--gpus",
-            f"device={device_id}",
-            "-e",
-            "PYTHONPATH=/app:/app/uvr5",
-            "-v",
-            f"{Config.dirs['DATA_ROOT']}:{Config.docker_root}",
-            image_name,
+            f"device={device_id}"
         ]
+        
+        cmd.extend(confs)
+        
+        cmd.extend([image_name])
 
         # 增加子參數
         cmd.extend(args)
