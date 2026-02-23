@@ -1,0 +1,142 @@
+
+import logging
+import subprocess
+
+import ffmpeg
+import torch
+
+from config import Config
+
+
+class Tools:
+    @staticmethod
+    def run_docker(image_name: str, args: list[str]) -> bool:
+        # 攞到目前最空閒粒 GPU (例如 "cuda:0")
+        device_str, is_half = Config.get_best_device()
+        # 轉做 docker 需要嘅 ID (例如 "0")
+        device_id = device_str.split(":")[-1] if "cuda" in device_str else "all"
+
+        # 基礎指令
+        cmd = [
+            "docker",
+            "run",
+            "--rm",
+            "--gpus",
+            f"device={device_id}",
+            "-e",
+            "PYTHONPATH=/app:/app/uvr5",
+            "-v",
+            f"{Config.dirs['DATA_ROOT']}:{Config.docker_root}",
+            image_name,
+        ]
+
+        # 增加子參數
+        cmd.extend(args)
+
+        try:
+            logging.info(f"[{image_name}] 🚀 啟動 Docker 任務...")
+
+            # 唔用 capture_output，改用 stdout=subprocess.PIPE
+            # 咁樣可以即時將 Docker 嘅 output 導向到你個 log 檔
+            with subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
+            ) as p:
+                for line in p.stdout:
+                    # 去除換行符號並寫入 logging
+                    logging.info(f"[{image_name}] [Docker Output] {line.strip()}")
+
+                p.wait()
+                if p.returncode == 0:
+                    logging.info("[{image_name}] ✅ Docker 執行完畢並成功退出")
+                    return True
+                else:
+                    logging.error(
+                        f"[{image_name}] ❌ Docker 報錯退出，Exit Code: {p.returncode}"
+                    )
+                    return False
+
+        except Exception as e:
+            logging.error(f"[{image_name}] 💥 呼叫 Docker 時發生系統錯誤: {e}")
+            return False
+
+    @staticmethod
+    def is_docker_running(image_name: str) -> bool:
+        """
+        檢查是否有基於該 Image Name 的 Container 正在執行中
+        """
+        try:
+            # 使用 docker ps 過濾 ancestor (祖先鏡像)
+            # --format "{{.Image}}" 令輸出只顯示鏡像名
+            cmd = [
+                "docker",
+                "ps",
+                "--filter",
+                f"ancestor={image_name}",
+                "--format",
+                "{{.Image}}",
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+            # 如果輸出包含 image_name，代表至少有一個 Container 行緊
+            return image_name in result.stdout
+        except Exception as e:
+            logging.error(f"檢查 Image 狀態時出錯: {e}")
+            return False    
+        
+    @staticmethod
+    def get_best_device():
+        """
+        自動搵出目前剩餘顯存 (Free VRAM) 最多、且算力最強嘅 GPU。
+        回傳: (str: device_name, bool: is_half)
+        """
+        if not torch.cuda.is_available():
+            print("CUDA 不可用，將使用 CPU 推理。")
+            return "cpu", False
+
+        tmp = []
+        for i in range(torch.cuda.device_count()):
+            try:
+                # 攞到 (剩餘顯存, 總顯存) 單位係 bytes
+                free_mem, total_mem = torch.cuda.mem_get_info(i)
+                
+                # 攞算力等級 (Compute Capability)
+                prop = torch.cuda.get_device_properties(i)
+                capability = prop.major + prop.minor / 10
+                
+                # 算力 >= 7.0 (Volta 架構或之後，如 V100, RTX 20/30/40 系列) 支援 FP16 加速
+                supported_dtype = torch.float16 if capability >= 7.0 else torch.float32
+                
+                # 儲存格式: (device_id, dtype, free_mem, capability)
+                tmp.append((f"cuda:{i}", supported_dtype, free_mem, capability))
+            except Exception as e:
+                print(f"查詢 GPU:{i} 資訊失敗: {e}")
+
+        if not tmp:
+            return "cpu", False
+
+        # 排序邏輯：優先比剩餘顯存 (x[2])，其次比算力等級 (x[3])
+        best_choice = max(tmp, key=lambda x: (x[2], x[3]))
+        
+        infer_device = best_choice[0]
+        is_half = (best_choice[1] == torch.float16)
+        
+        print(f"--- 硬件檢測報告 ---")
+        print(f"最佳設備: {infer_device}")
+        print(f"剩餘顯存: {best_choice[2]/(1024**3):.2f} GB")
+        print(f"算力等級: {best_choice[3]}")
+        print(f"啟用 FP16: {is_half}")
+        print(f"------------------")
+        
+        return infer_device, is_half
+    
+    @staticmethod
+    def is_audio_file(file_path: Path) -> bool:
+        """使用 ffprobe 檢查是否為有效的音頻檔案"""
+        try:
+            probe = ffmpeg.probe(str(file_path))
+            for stream in probe.get("streams", []):
+                if stream.get("codec_type") == "audio":
+                    return True
+        except Exception:
+            return False
+        return False
